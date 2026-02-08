@@ -1,10 +1,10 @@
-
-const fetch = require('node-fetch');
+// Note: Node.js 18+ has fetch built-in. For older versions, install node-fetch.
+const fetchApi = typeof fetch !== 'undefined' ? fetch : require('node-fetch');
 
 async function testOllama() {
     console.log('Testing Ollama Connection...');
     try {
-        const response = await fetch('http://localhost:11434/api/generate', {
+        const response = await fetchApi('http://localhost:11434/api/generate', {
             method: 'POST',
             // Testing with a simple prompt and valid json schema
             body: JSON.stringify({

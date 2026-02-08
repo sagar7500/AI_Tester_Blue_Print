@@ -5,12 +5,14 @@
 // Same origin — API served by same app on port 3000
 const CONFIG = {
     HEALTH_PATH: '/api/health',
-    GENERATE_PATH: '/api/generate'
+    GENERATE_PATH: '/api/generate',
+    GENERATE_TIMEOUT_MS: 5 * 60 * 1000  // 5 min — Llama can be slow
 };
 
 const state = {
     isProcessing: false,
-    isConnected: false
+    isConnected: false,
+    ollamaOk: false
 };
 
 const ui = {
@@ -24,29 +26,33 @@ const ui = {
 async function init() {
     await checkBackendConnection();
     ui.userInput.focus();
+    setInterval(checkBackendConnection, 10000);
 }
 
 async function checkBackendConnection() {
     try {
         const response = await fetch(CONFIG.HEALTH_PATH);
         if (response.ok) {
-            updateConnectionStatus(true);
+            const data = await response.json();
+            const ollamaOk = data.ollama === 'ok';
+            updateConnectionStatus(true, ollamaOk);
         } else {
-            updateConnectionStatus(false);
+            updateConnectionStatus(false, false);
         }
     } catch (error) {
         console.error('Backend connection check failed:', error);
-        updateConnectionStatus(false);
+        updateConnectionStatus(false, false);
     }
 }
 
-function updateConnectionStatus(isConnected) {
-    state.isConnected = isConnected;
-    if (isConnected) {
+function updateConnectionStatus(backendOk, ollamaOk) {
+    state.isConnected = backendOk;
+    state.ollamaOk = ollamaOk;
+    if (backendOk) {
         ui.connDot.classList.add('online');
-        ui.connText.textContent = 'Backend Online';
+        ui.connText.textContent = ollamaOk ? 'Backend & Ollama Online' : 'Backend Online · Ollama Offline';
         ui.sendBtn.disabled = false;
-        ui.sendBtn.title = 'Ready to send';
+        ui.sendBtn.title = ollamaOk ? 'Ready to send' : 'Start Ollama first (e.g. run_ollama.bat) to generate test cases';
     } else {
         ui.connDot.classList.remove('online');
         ui.connText.textContent = 'Offline (start the app server)';
@@ -57,20 +63,31 @@ function updateConnectionStatus(isConnected) {
 
 async function generateTestCases(userPrompt) {
     if (state.isProcessing) return;
-    setProcessing(true);
 
     addMessage(userPrompt, 'user');
     ui.userInput.value = '';
 
-    const aiMessageId = addMessage('Generating test cases...', 'ai', true);
+    if (!state.ollamaOk) {
+        const aiMessageId = addMessage('…', 'ai', true);
+        updateAIMessage(aiMessageId, null, 'Ollama is offline. Start Ollama (e.g. run run_ollama.bat or from the system tray). The status above will switch to "Ollama Online" when it\'s ready — then try again.');
+        return;
+    }
+
+    setProcessing(true);
+    const aiMessageId = addMessage('Generating test cases... (this can take 1–2 minutes)', 'ai', true);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), CONFIG.GENERATE_TIMEOUT_MS);
 
     try {
         const response = await fetch(CONFIG.GENERATE_PATH, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ prompt: userPrompt })
+            body: JSON.stringify({ prompt: userPrompt }),
+            signal: controller.signal
         });
 
+        clearTimeout(timeoutId);
         const data = await response.json();
 
         if (!response.ok) {
@@ -80,7 +97,11 @@ async function generateTestCases(userPrompt) {
         const testData = { test_cases: data.test_cases || data.raw?.test_cases || [] };
         updateAIMessage(aiMessageId, testData);
     } catch (error) {
-        updateAIMessage(aiMessageId, null, error.message);
+        clearTimeout(timeoutId);
+        const msg = error.name === 'AbortError'
+            ? 'Request took too long. The model may be slow — try again or use a shorter prompt.'
+            : error.message;
+        updateAIMessage(aiMessageId, null, msg);
     } finally {
         setProcessing(false);
     }

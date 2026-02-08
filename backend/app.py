@@ -14,6 +14,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from tools.generator import generate_test_cases
+from tools.generator import OLLAMA_URL
 
 app = FastAPI(title="Local Test Case Generator", version="1.0.0")
 
@@ -29,9 +30,25 @@ class GenerateResponse(BaseModel):
     raw: dict
 
 
+def _ollama_reachable() -> bool:
+    """Quick check if Ollama is running (2s timeout)."""
+    try:
+        import urllib.request
+        # Use 127.0.0.1 directly as OLLAMA_URL is now 127.0.0.1 by default
+        with urllib.request.urlopen(f"{OLLAMA_URL.rstrip('/')}/", timeout=2.0) as r:
+            return r.status == 200
+    except Exception:
+        return False
+
+
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "service": "backend"}
+    ollama_ok = _ollama_reachable()
+    return {
+        "status": "ok",
+        "service": "backend",
+        "ollama": "ok" if ollama_ok else "offline"
+    }
 
 
 @app.post("/api/generate", response_model=GenerateResponse)

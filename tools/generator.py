@@ -12,8 +12,10 @@ try:
 except ImportError:
     httpx = None
 
-OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434")
+OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://127.0.0.1:11434")
 MODEL = os.environ.get("OLLAMA_MODEL", "llama3.2")
+# Llama 3.2 can take 2–5+ minutes on CPU; use a long timeout
+OLLAMA_TIMEOUT = float(os.environ.get("OLLAMA_TIMEOUT", "300"))
 SYSTEM_PROMPT = (
     "You are a Senior QA Engineer. Generate comprehensive test cases for the following request in STRICT JSON format. "
     "Do not include markdown code blocks. The JSON structure is: "
@@ -37,22 +39,45 @@ def generate_test_cases(prompt: str, context: str | None = None) -> dict:
         "stream": False,
     }
     url = f"{OLLAMA_URL.rstrip('/')}/api/generate"
+    timeout_msg = (
+        "Ollama took too long to respond. "
+        "Make sure Ollama is running (and Llama 3.2 is pulled), then try again. "
+        "First run can be slow while the model loads."
+    )
 
-    if httpx:
-        with httpx.Client(timeout=120.0) as client:
-            resp = client.post(url, json=payload)
-            resp.raise_for_status()
-            data = resp.json()
-    else:
-        import urllib.request
-        req = urllib.request.Request(
-            url,
-            data=json.dumps(payload).encode(),
-            headers={"Content-Type": "application/json"},
-            method="POST",
-        )
-        with urllib.request.urlopen(req, timeout=120) as r:
-            data = json.loads(r.read().decode())
+    try:
+        if httpx:
+            with httpx.Client(timeout=OLLAMA_TIMEOUT) as client:
+                resp = client.post(url, json=payload)
+                resp.raise_for_status()
+                data = resp.json()
+        else:
+            import urllib.request
+            req = urllib.request.Request(
+                url,
+                data=json.dumps(payload).encode(),
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=int(OLLAMA_TIMEOUT)) as r:
+                data = json.loads(r.read().decode())
+    except Exception as e:
+        err = str(e).lower()
+        # Safe check for httpx exceptions without causing AttributeError
+        is_httpx_timeout = False
+        if httpx:
+            try:
+                is_httpx_timeout = isinstance(e, (httpx.TimeoutException, httpx.ConnectTimeout, httpx.ReadTimeout))
+            except AttributeError:
+                pass
+        
+        if "timed out" in err or "timeout" in err or is_httpx_timeout:
+            raise ValueError(timeout_msg) from e
+        if "connection" in err or "refused" in err or "cannot connect" in err:
+            raise ValueError(
+                "Cannot connect to Ollama. Is it running? Start it (e.g. run_ollama.bat or from the system tray)."
+            ) from e
+        raise ValueError(str(e)) from e
 
     raw = data.get("response", "")
     if not raw:
