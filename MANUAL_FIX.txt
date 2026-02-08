@@ -1,0 +1,12 @@
+
+# ⚠️ OLLAMA CORS CONFIGURATION REQUIRED
+# It seems the automatic CORS fix script did not apply or Ollama ignored the environment variable.
+# Please manually set the environment variable and restart Ollama.
+
+Write-Host "Please close Ollama from the System Tray if it is running."
+Write-Host "Then run these commands in a PowerShell Administrator window:"
+Write-Host ""
+Write-Host '$env:OLLAMA_ORIGINS="*"'
+Write-Host "ollama serve"
+Write-Host ""
+Write-Host "After that, refresh the browser page."

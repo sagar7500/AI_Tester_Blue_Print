@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A.I. Tester - Local Generator</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@3.5.0/fonts/remixicon.css" rel="stylesheet">
+    <!-- Styles -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="app-container" class="glass-panel">
+        
+        <!-- Header -->
+        <header>
+            <div class="logo">
+                <i class="ri-robot-2-line"></i>
+                <span>Local Tester AI</span>
+            </div>
+            <div class="status-indicator">
+                <div id="connection-dot" class="status-dot"></div>
+                <span id="connection-text">Checking Ollama...</span>
+            </div>
+        </header>
+
+        <!-- Chat Area -->
+        <div id="chat-history">
+            <!-- Introduction Message -->
+            <div class="message ai">
+                <div class="bubble">
+                    <strong>👋 Ready to test.</strong><br>
+                    Describe a feature or scenario, and I'll generate structured test cases using your local Llama 3.2 model.
+                </div>
+            </div>
+            <!-- Dynamic Messages will be injected here -->
+        </div>
+
+        <!-- Input Area -->
+        <div class="input-area">
+            <textarea id="user-input" placeholder="E.g., Login functionality with email and password..." rows="1"></textarea>
+            <button id="send-btn" disabled>
+                <i class="ri-send-plane-fill"></i>
+            </button>
+        </div>
+
+    </div>
+
+    <!-- Application Logic -->
+    <script src="app.js"></script>
+</body>
+</html>
