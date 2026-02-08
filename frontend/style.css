@@ -132,7 +132,6 @@ header {
   align-self: flex-start;
   align-items: flex-start;
   width: 100%;
-  /* Allow AI message to take full width for code blocks */
   max-width: 95%;
 }
 
